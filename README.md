@@ -60,9 +60,10 @@ To install a Skill from a GitHub repository (e.g., [anthropics/skills/frontend-d
 ```
 
 SkillShepard will:
-1. Fetch the Skill files from GitHub
-2. Run security checks
-3. Install the Skill if no blocking issues are found
+1. Fetch the Skill files from GitHub to a temporary directory (`/tmp/`)
+2. Run security checks on the fetched files
+3. Install the Skill to your skills directory if no blocking issues are found
+4. The temporary files in `/tmp/` are automatically cleaned up by the system
 
 ### Basic Commands
 
@@ -223,13 +224,16 @@ For detailed patterns and recommendations, see [reference.md](skillshepard/refer
 /frontend-design
 ```
 
-### Workflow Summary
+### Installing New Skills
 
-1. Find a new Skill on GitHub or other sources
-2. Run `/skillshepard install <url-or-path>` to check and install
-3. If HIGH severity issues found, installation is blocked with a detailed report
-4. If no blocking issues, Skill is installed automatically
-5. Periodically run `/skillshepard scan` to audit all installed Skills
+1. Find a Skill (GitHub, Agent Skills directory, etc.)
+2. Run `/skillshepard install <url-or-path>`
+3. Review the security report if issues are found
+4. Skill is installed automatically if no HIGH severity issues
+
+### Auditing Installed Skills
+
+Run `/skillshepard scan` periodically to check all installed Skills for vulnerabilities.
 
 ## License
 

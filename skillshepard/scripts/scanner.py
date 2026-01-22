@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from reporter import MarkdownReporter, JsonReporter
+from i18n import I18n
 
 
 def get_script_dir() -> Path:
@@ -432,11 +433,17 @@ def main():
         description='SkillShepard - Skill Security Scanner'
     )
 
-    # Global option for skill directory
+    # Global options
     parser.add_argument(
         '--skill-dir',
         help='Skills root directory (auto-detected if not specified)',
         default=None
+    )
+    parser.add_argument(
+        '--lang', '-l',
+        choices=['en', 'ja'],
+        default='en',
+        help='Output language (en: English, ja: Japanese)'
     )
 
     subparsers = parser.add_subparsers(dest='command', help='Commands')
@@ -463,21 +470,24 @@ def main():
 
     args = parser.parse_args()
 
+    # Initialize i18n
+    i18n = I18n(args.lang)
+
     if not args.command:
         parser.print_help()
         sys.exit(1)
 
     # Handle info command
     if args.command == 'info':
-        print("SkillShepard Directory Info")
+        print(i18n.t('info_title'))
         print("=" * 40)
-        print(f"Script location:     {get_script_dir()}")
-        print(f"Skill directory:     {get_skill_dir()}")
+        print(f"{i18n.t('info_script_location')}:     {get_script_dir()}")
+        print(f"{i18n.t('info_skill_directory')}:     {get_skill_dir()}")
         skills_root = detect_skills_root()
         if skills_root:
-            print(f"Skills root:         {skills_root}")
+            print(f"{i18n.t('info_skills_root')}:         {skills_root}")
         else:
-            print(f"Skills root:         (not detected)")
+            print(f"{i18n.t('info_skills_root')}:         {i18n.t('info_not_detected')}")
         sys.exit(0)
 
     scanner = SkillScanner()
@@ -485,17 +495,17 @@ def main():
     try:
         if args.command == 'install':
             result = scanner.check_skill(args.path)
-            reporter = MarkdownReporter()
+            reporter = MarkdownReporter(i18n)
             output = reporter.generate(result)
 
             # If issues found, output report and abort
             if result.status == 'blocked':
                 if args.output:
                     Path(args.output).write_text(output, encoding='utf-8')
-                    print(f"Security issues found. Report saved to: {args.output}")
+                    print(i18n.t('security_issues_found', path=args.output))
                 else:
                     print(output)
-                print(f"\nInstallation aborted due to security issues.")
+                print(f"\n{i18n.t('installation_aborted')}")
                 sys.exit(1)
 
             # If scan-only mode, just output result and exit
@@ -503,13 +513,13 @@ def main():
                 if result.issues:
                     print(output)
                 else:
-                    print(f"No security issues found in: {result.skill_name}")
+                    print(i18n.t('no_issues_in', name=result.skill_name))
                 sys.exit(0)
 
             # Proceed with installation
             skills_root = args.skill_dir or detect_skills_root()
             if skills_root is None:
-                print("Error: Could not detect skills directory. Use --skill-dir to specify.", file=sys.stderr)
+                print(i18n.t('error_skills_dir_not_detected'), file=sys.stderr)
                 sys.exit(1)
 
             skills_root = Path(skills_root)
@@ -518,10 +528,10 @@ def main():
             # Check if skill already exists
             if dest_path.exists():
                 if not args.yes:
-                    print(f"Skill '{result.skill_name}' already exists at: {dest_path}")
-                    response = input("Overwrite? [y/N]: ").strip().lower()
+                    print(i18n.t('skill_exists', name=result.skill_name, path=dest_path))
+                    response = input(i18n.t('overwrite_prompt')).strip().lower()
                     if response != 'y':
-                        print("Installation cancelled.")
+                        print(i18n.t('installation_cancelled'))
                         sys.exit(0)
                 import shutil
                 shutil.rmtree(dest_path)
@@ -536,10 +546,10 @@ def main():
             # Output result
             if result.issues:
                 print(output)
-                print(f"\nInstalled with warnings: {dest_path}")
+                print(f"\n{i18n.t('installed_with_warnings', path=dest_path)}")
             else:
-                print(f"No security issues found.")
-                print(f"Installed: {dest_path}")
+                print(i18n.t('no_security_issues'))
+                print(i18n.t('installed', path=dest_path))
 
             sys.exit(0)
 
@@ -549,24 +559,24 @@ def main():
             if directory is None:
                 directory = args.skill_dir or detect_skills_root()
             if directory is None:
-                print("Error: Could not detect skills directory. Please specify a directory.", file=sys.stderr)
+                print(i18n.t('error_skills_dir_specify'), file=sys.stderr)
                 sys.exit(1)
 
             report = scanner.scan_directory(str(directory))
-            reporter = JsonReporter()
+            reporter = JsonReporter(i18n)
             output = reporter.generate(report)
 
         if args.output:
             Path(args.output).write_text(output, encoding='utf-8')
-            print(f"Report saved to: {args.output}")
+            print(i18n.t('report_saved', path=args.output))
         else:
             print(output)
 
     except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(i18n.t('error_prefix', message=str(e)), file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(i18n.t('error_prefix', message=str(e)), file=sys.stderr)
         sys.exit(1)
 
 

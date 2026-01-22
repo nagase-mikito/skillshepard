@@ -51,10 +51,38 @@ python3 --version  # Verify 3.10 or higher
 
 ## Usage
 
+### Installing a Skill from GitHub
+
+To install a Skill from a GitHub repository (e.g., [anthropics/skills/frontend-design](https://github.com/anthropics/skills/tree/main/skills/frontend-design)):
+
 ```
+/skillshepard install https://github.com/anthropics/skills/tree/main/skills/frontend-design
+```
+
+SkillShepard will:
+1. Fetch the Skill files from GitHub
+2. Run security checks
+3. Install the Skill if no blocking issues are found
+
+### Basic Commands
+
+```bash
+# Install from GitHub URL
+/skillshepard install https://github.com/anthropics/skills/tree/main/skills/frontend-design
+
+# Install from local path
 /skillshepard install /path/to/new-skill/
-/skillshepard install --scan-only /path/to/new-skill/
+
+# Scan only (don't install)
+/skillshepard install --scan-only https://github.com/anthropics/skills/tree/main/skills/frontend-design
+
+# Japanese output
+/skillshepard install --lang ja https://github.com/anthropics/skills/tree/main/skills/frontend-design
+
+# Batch scan all installed Skills
 /skillshepard scan
+
+# Show directory info
 /skillshepard info
 ```
 
@@ -74,6 +102,7 @@ python3 --version  # Verify 3.10 or higher
 | `-y, --yes` | Skip confirmation prompt when overwriting existing Skill |
 | `--skill-dir <path>` | Override auto-detected skills root directory |
 | `-o, --output <file>` | Write output to file instead of stdout |
+| `--lang, -l` | Output language (`en`: English, `ja`: Japanese) |
 
 ## Output Examples
 
@@ -122,6 +151,22 @@ Skill directory:     /path/to/skills/skillshepard
 Skills root:         /path/to/skills
 ```
 
+### Japanese Output (`--lang ja`)
+
+```markdown
+# SkillShepard セキュリティレポート
+
+## 概要
+- **Skill**: `example-skill`
+- **ステータス**: 🚫 ブロック
+- **検出された問題**: 2
+
+## 検出された問題
+### 1. [🔴 高] コマンドインジェクション
+**ファイル**: `scripts/run.py` (行 42)
+**推奨事項**: subprocess.run()をshell=Falseで使用し、引数をリストとして渡してください
+```
+
 ## Security Checks
 
 SkillShepard detects the following vulnerability categories, designed with reference to:
@@ -161,11 +206,30 @@ For detailed patterns and recommendations, see [reference.md](skillshepard/refer
 
 ## Workflow
 
-1. Find a new Skill
-2. Run `skillshepard install` to check and install
-3. If HIGH severity issues found, installation is blocked with a report
+### Example: Installing frontend-design Skill
+
+```bash
+# 1. Find a Skill you want to install (e.g., from Agent Skills directory)
+#    https://github.com/anthropics/skills/tree/main/skills/frontend-design
+
+# 2. Run skillshepard install with the GitHub URL
+/skillshepard install https://github.com/anthropics/skills/tree/main/skills/frontend-design
+
+# Output:
+# No security issues found.
+# Installed: /Users/you/.claude/skills/frontend-design
+
+# 3. The Skill is now ready to use!
+/frontend-design
+```
+
+### Workflow Summary
+
+1. Find a new Skill on GitHub or other sources
+2. Run `/skillshepard install <url-or-path>` to check and install
+3. If HIGH severity issues found, installation is blocked with a detailed report
 4. If no blocking issues, Skill is installed automatically
-5. Periodically run `skillshepard scan` to audit installed Skills
+5. Periodically run `/skillshepard scan` to audit all installed Skills
 
 ## License
 

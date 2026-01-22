@@ -15,16 +15,28 @@ SkillShepard scans Skill definition files (SKILL.md, scripts, etc.) to detect se
 Checks a new Skill for security issues and installs it if no blocking issues are found.
 
 **Examples:**
-```
+```bash
+# Install from GitHub URL (recommended)
+/skillshepard install https://github.com/anthropics/skills/tree/main/skills/frontend-design
+
+# Install from local path
 /skillshepard install /path/to/new-skill/
-/skillshepard install --scan-only /path/to/new-skill/
-/skillshepard install -y /path/to/new-skill/
+
+# Scan only (don't install)
+/skillshepard install --scan-only https://github.com/anthropics/skills/tree/main/skills/frontend-design
+
+# Skip overwrite confirmation
+/skillshepard install -y https://github.com/anthropics/skills/tree/main/skills/frontend-design
+
+# Japanese output
+/skillshepard install --lang ja https://github.com/anthropics/skills/tree/main/skills/frontend-design
 ```
 
 **Options:**
 - `--scan-only`: Only perform security scan, do not install
 - `-y, --yes`: Skip confirmation prompt when overwriting existing Skill
 - `-o, --output`: Save report to file
+- `--lang, -l`: Output language (`en`: English, `ja`: Japanese)
 
 **Process flow:**
 1. Retrieve target Skill files
@@ -41,6 +53,7 @@ Scans an entire Skills directory and outputs results in JSON format.
 ```
 /skillshepard scan
 /skillshepard scan /path/to/skills/
+/skillshepard scan --lang ja  # Japanese output
 ```
 
 **Process flow:**

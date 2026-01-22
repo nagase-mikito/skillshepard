@@ -2,13 +2,18 @@
 """Report generators for SkillShepard scan results"""
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
+
+from i18n import I18n
 
 if TYPE_CHECKING:
     from scanner import ScanReport, ScanResult
 
 
 class JsonReporter:
+    def __init__(self, i18n: Optional[I18n] = None):
+        self.i18n = i18n or I18n('en')
+
     def generate(self, report: "ScanReport") -> str:
         data = {
             "scan_date": report.scan_date,
@@ -16,10 +21,17 @@ class JsonReporter:
             "issues_found": report.issues_found,
             "results": [{
                 "skill_name": r.skill_name, "path": r.path, "status": r.status,
-                "issues": [{"severity": i.severity, "type": i.type, "file": i.file,
-                           "line": i.line, "message": i.message,
-                           "code_snippet": i.code_snippet, "recommendation": i.recommendation}
-                          for i in r.issues]
+                "issues": [{
+                    "severity": i.severity,
+                    "severity_label": self.i18n.t(f'severity_{i.severity}'),
+                    "type": i.type,
+                    "type_label": self.i18n.t(self.i18n.get_type_key(i.type)),
+                    "file": i.file,
+                    "line": i.line,
+                    "message": i.message,
+                    "code_snippet": i.code_snippet,
+                    "recommendation": self.i18n.t(self.i18n.get_rec_key(i.type)) if i.recommendation else None
+                } for i in r.issues]
             } for r in report.results]
         }
         return json.dumps(data, indent=2, ensure_ascii=False)
@@ -27,30 +39,30 @@ class JsonReporter:
 
 class MarkdownReporter:
     SEVERITY_EMOJI = {'high': '🔴', 'medium': '🟡', 'low': '🔵'}
-    SEVERITY_LABEL = {'high': 'HIGH', 'medium': 'MEDIUM', 'low': 'LOW'}
-    STATUS_LABEL = {'ok': '✅ PASSED', 'warning': '⚠️ WARNING', 'blocked': '🚫 BLOCKED'}
-    TYPE_LABEL = {
-        'command_injection': 'Command Injection', 'path_manipulation': 'Path Manipulation',
-        'secret_exposure': 'Secret Exposure', 'external_communication': 'External Communication',
-        'privilege_escalation': 'Privilege Escalation', 'dangerous_command': 'Dangerous Command',
-        'insecure_default': 'Insecure Default', 'insecure_deserialization': 'Insecure Deserialization',
-        'information_disclosure': 'Information Disclosure', 'dependency_risk': 'Dependency Risk',
-        'prompt_injection': 'Prompt Injection', 'external_data_fetch': 'External Data Fetch',
-        'supply_chain': 'Supply Chain Risk',
-    }
+    STATUS_EMOJI = {'ok': '✅', 'warning': '⚠️', 'blocked': '🚫'}
+
+    def __init__(self, i18n: Optional[I18n] = None):
+        self.i18n = i18n or I18n('en')
 
     def generate(self, result: "ScanResult") -> str:
+        t = self.i18n.t
+
+        # Status label with emoji
+        status_emoji = self.STATUS_EMOJI.get(result.status, '')
+        status_key = {'ok': 'status_passed', 'warning': 'status_warning', 'blocked': 'status_blocked'}
+        status_label = f"{status_emoji} {t(status_key.get(result.status, result.status))}"
+
         lines = [
-            "# SkillShepard Security Report", "",
-            "## Summary", "",
-            f"- **Skill**: `{result.skill_name}`",
-            f"- **Path**: `{result.path}`",
-            f"- **Status**: {self.STATUS_LABEL.get(result.status, result.status)}",
-            f"- **Issues Found**: {len(result.issues)}", ""
+            f"# {t('report_title')}", "",
+            f"## {t('report_summary')}", "",
+            f"- **{t('report_skill')}**: `{result.skill_name}`",
+            f"- **{t('report_path')}**: `{result.path}`",
+            f"- **{t('report_status')}**: {status_label}",
+            f"- **{t('report_issues_found')}**: {len(result.issues)}", ""
         ]
 
         if not result.issues:
-            lines.append("No security issues detected.")
+            lines.append(t('report_no_issues'))
             return '\n'.join(lines)
 
         high = sum(1 for i in result.issues if i.severity == 'high')
@@ -58,39 +70,42 @@ class MarkdownReporter:
         low = sum(1 for i in result.issues if i.severity == 'low')
 
         lines += [
-            "### Issue Breakdown", "",
-            "| Severity | Count |", "|----------|-------|",
-            f"| {self.SEVERITY_EMOJI['high']} High | {high} |",
-            f"| {self.SEVERITY_EMOJI['medium']} Medium | {med} |",
-            f"| {self.SEVERITY_EMOJI['low']} Low | {low} |",
-            "", "---", "", "## Issues", ""
+            f"### {t('report_issue_breakdown')}", "",
+            f"| {t('report_severity')} | {t('report_count')} |",
+            "|----------|-------|",
+            f"| {self.SEVERITY_EMOJI['high']} {t('report_high')} | {high} |",
+            f"| {self.SEVERITY_EMOJI['medium']} {t('report_medium')} | {med} |",
+            f"| {self.SEVERITY_EMOJI['low']} {t('report_low')} | {low} |",
+            "", "---", "", f"## {t('report_issues')}", ""
         ]
 
         sorted_issues = sorted(result.issues, key=lambda x: {'high': 0, 'medium': 1, 'low': 2}.get(x.severity, 3))
 
         for i, issue in enumerate(sorted_issues, 1):
             emoji = self.SEVERITY_EMOJI.get(issue.severity, '⚪')
-            label = self.SEVERITY_LABEL.get(issue.severity, issue.severity.upper())
-            type_label = self.TYPE_LABEL.get(issue.type, issue.type)
+            severity_label = t(f'severity_{issue.severity}')
+            type_label = t(self.i18n.get_type_key(issue.type))
 
+            line_info = f" ({t('report_line')} {issue.line})" if issue.line else ""
             lines += [
-                f"### {i}. [{emoji} {label}] {type_label}", "",
-                f"**File**: `{issue.file}`" + (f" (line {issue.line})" if issue.line else ""), "",
-                f"**Issue**: {issue.message}", ""
+                f"### {i}. [{emoji} {severity_label}] {type_label}", "",
+                f"**{t('report_file')}**: `{issue.file}`{line_info}", "",
+                f"**{t('report_issue')}**: {issue.message}", ""
             ]
 
             if issue.code_snippet:
-                lines += ["**Code**:", "```", issue.code_snippet, "```", ""]
+                lines += [f"**{t('report_code')}**:", "```", issue.code_snippet, "```", ""]
             if issue.recommendation:
-                lines += [f"**Recommendation**: {issue.recommendation}", ""]
+                rec_text = t(self.i18n.get_rec_key(issue.type))
+                lines += [f"**{t('report_recommendation')}**: {rec_text}", ""]
             lines += ["---", ""]
 
         if result.status == 'blocked':
-            lines += ["## Action Required", "",
-                     "This skill has HIGH severity issues and should NOT be imported.", ""]
+            lines += [f"## {t('report_action_required')}", "",
+                     t('report_action_blocked'), ""]
         elif result.status == 'warning':
-            lines += ["## Recommendation", "",
-                     "Review the warnings above before importing.", ""]
+            lines += [f"## {t('report_recommendation_title')}", "",
+                     t('report_review_warnings'), ""]
 
-        lines += ["---", "*Generated by SkillShepard*"]
+        lines += ["---", f"*{t('report_generated_by')}*"]
         return '\n'.join(lines)

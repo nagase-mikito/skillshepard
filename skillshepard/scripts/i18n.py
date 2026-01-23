@@ -105,6 +105,17 @@ TRANSLATIONS = {
         'rec_prompt_injection': 'Remove prompt injection patterns - these could manipulate agent behavior',
         'rec_external_data_fetch': 'External content may contain malicious instructions - validate and sanitize fetched data',
         'rec_supply_chain': 'Avoid executing remote scripts - download, review, then execute locally',
+
+        # Ignore command messages
+        'ignore_added': "Added '{name}' to {scope} ignore list.",
+        'ignore_removed': "Removed '{name}' from {scope} ignore list.",
+        'ignore_already_exists': "'{name}' is already in the ignore list.",
+        'ignore_not_found': "'{name}' was not found in the ignore list.",
+        'ignore_scope_global': 'global',
+        'ignore_scope_local': 'local',
+        'ignore_list_global_header': 'Global ignore list:',
+        'ignore_list_local_header': 'Local ignore list ({path}):',
+        'ignore_list_empty': 'empty',
     },
 
     'ja': {
@@ -210,6 +221,17 @@ TRANSLATIONS = {
         'rec_prompt_injection': 'プロンプトインジェクションパターンを削除してください - エージェントの動作を操作される可能性があります',
         'rec_external_data_fetch': '外部コンテンツには悪意のある命令が含まれている可能性があります - 取得したデータを検証・サニタイズしてください',
         'rec_supply_chain': 'リモートスクリプトの実行を避けてください - ダウンロードして確認後、ローカルで実行してください',
+
+        # Ignore command messages
+        'ignore_added': "'{name}' を{scope}のignoreリストに追加しました。",
+        'ignore_removed': "'{name}' を{scope}のignoreリストから削除しました。",
+        'ignore_already_exists': "'{name}' は既にignoreリストに存在します。",
+        'ignore_not_found': "'{name}' はignoreリストに見つかりませんでした。",
+        'ignore_scope_global': 'グローバル',
+        'ignore_scope_local': 'ローカル',
+        'ignore_list_global_header': 'グローバルignoreリスト:',
+        'ignore_list_local_header': 'ローカルignoreリスト ({path}):',
+        'ignore_list_empty': '空',
     }
 }
 

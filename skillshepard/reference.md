@@ -113,3 +113,41 @@ SKILL.md frontmatter patterns:
 | `*.js`, `*.ts` | Command injection, external fetch |
 | `*.sh` | Dangerous commands, supply chain |
 | `*.yaml`, `*.json` | Secrets, insecure defaults |
+
+---
+
+## Ignore List
+
+You can exclude trusted Skills from scanning using the ignore list feature.
+
+### Commands
+
+```bash
+# Add to ignore list
+skillshepard ignore add <skill-name> [--global | --local]
+
+# Remove from ignore list
+skillshepard ignore remove <skill-name> [--global | --local]
+
+# List ignored Skills
+skillshepard ignore list [--global | --local]
+```
+
+### Ignore List Locations
+
+| Scope | Location | Description |
+|-------|----------|-------------|
+| Global | `skillshepard/scan-ignore.txt` | Applies to all scans |
+| Local | `<target>/.claude/scan-ignore` | Project-specific |
+
+Both lists are merged when scanning. Skills matching either list are excluded.
+
+### File Format
+
+One Skill name per line. Lines starting with `#` are comments.
+
+```
+# Trusted internal Skills
+my-trusted-skill
+another-safe-skill
+```

@@ -95,6 +95,9 @@ SkillShepard will:
 |---------|-------------|---------------|
 | `install <path>` | Security check and install Skill | Markdown |
 | `scan [directory]` | Batch scan existing Skills | JSON |
+| `ignore add <skill>` | Add a Skill to ignore list | Text |
+| `ignore remove <skill>` | Remove a Skill from ignore list | Text |
+| `ignore list` | Show ignored Skills | Text |
 | `info` | Show detected directory paths | Text |
 
 ## Options
@@ -106,6 +109,9 @@ SkillShepard will:
 | `--skill-dir <path>` | Override auto-detected skills root directory |
 | `-o, --output <file>` | Write output to file instead of stdout |
 | `--lang, -l` | Output language (`en`: English, `ja`: Japanese) |
+| `--global, -g` | Use global ignore list (for `ignore` command) |
+| `--local, -L` | Use local ignore list (for `ignore` command, default) |
+| `--directory, -d` | Target directory for local ignore list |
 
 ## Output Examples
 
@@ -153,6 +159,29 @@ Script location:     /path/to/skills/skillshepard/scripts
 Skill directory:     /path/to/skills/skillshepard
 Skills root:         /path/to/skills
 ```
+
+### ignore (Text)
+
+```bash
+# Add a Skill to ignore list (won't be scanned)
+/skillshepard ignore add trusted-skill --global
+
+# List ignored Skills
+/skillshepard ignore list
+# Output:
+# Global ignore list:
+#   - trusted-skill
+#
+# Local ignore list (/path/to/project):
+#   (empty)
+
+# Remove from ignore list
+/skillshepard ignore remove trusted-skill --global
+```
+
+**Ignore List Locations:**
+- **Global**: `skillshepard/scan-ignore.txt` (applies to all scans)
+- **Local**: `<target-directory>/.claude/scan-ignore` (project-specific)
 
 ### Japanese Output (`--lang ja`)
 

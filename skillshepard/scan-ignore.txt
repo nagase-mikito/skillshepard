@@ -1,0 +1,5 @@
+# SkillShepard global ignore list
+# Skills listed here will be excluded from all scans
+# One skill name per line
+
+skillshepard

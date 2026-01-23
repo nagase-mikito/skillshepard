@@ -26,6 +26,130 @@ def detect_skills_root() -> Optional[Path]:
     return skills_root if skills_root.exists() else None
 
 
+# ============ Ignore List Management ============
+
+def get_global_ignore_path() -> Path:
+    """Get the path to the global scan-ignore file (in skillshepard directory)."""
+    return get_skill_dir() / 'scan-ignore.txt'
+
+
+def get_local_ignore_path(directory: Path) -> Path:
+    """Get the path to the local scan-ignore file (in target .claude directory)."""
+    return directory / '.claude' / 'scan-ignore'
+
+
+def load_ignore_list(directory: Optional[Path] = None) -> set[str]:
+    """Load and merge global and local ignore lists."""
+    ignored = set()
+
+    # Load global ignore list
+    global_path = get_global_ignore_path()
+    if global_path.exists():
+        for line in global_path.read_text(encoding='utf-8').splitlines():
+            line = line.strip()
+            if line and not line.startswith('#'):
+                ignored.add(line)
+
+    # Load local ignore list
+    if directory:
+        local_path = get_local_ignore_path(directory)
+        if local_path.exists():
+            for line in local_path.read_text(encoding='utf-8').splitlines():
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    ignored.add(line)
+
+    return ignored
+
+
+def add_to_ignore(skill_name: str, is_global: bool, directory: Optional[Path] = None) -> bool:
+    """Add a skill to the ignore list. Returns True if added, False if already exists."""
+    if is_global:
+        path = get_global_ignore_path()
+    else:
+        if directory is None:
+            raise ValueError("directory is required for local ignore")
+        path = get_local_ignore_path(directory)
+
+    # Load existing entries
+    existing = set()
+    if path.exists():
+        for line in path.read_text(encoding='utf-8').splitlines():
+            line = line.strip()
+            if line and not line.startswith('#'):
+                existing.add(line)
+
+    if skill_name in existing:
+        return False
+
+    # Ensure parent directory exists
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Check if file needs newline before appending
+    needs_newline = False
+    if path.exists() and path.stat().st_size > 0:
+        content = path.read_text(encoding='utf-8')
+        needs_newline = not content.endswith('\n')
+
+    # Append to file
+    with path.open('a', encoding='utf-8') as f:
+        if needs_newline:
+            f.write('\n')
+        f.write(f'{skill_name}\n')
+
+    return True
+
+
+def remove_from_ignore(skill_name: str, is_global: bool, directory: Optional[Path] = None) -> bool:
+    """Remove a skill from the ignore list. Returns True if removed, False if not found."""
+    if is_global:
+        path = get_global_ignore_path()
+    else:
+        if directory is None:
+            raise ValueError("directory is required for local ignore")
+        path = get_local_ignore_path(directory)
+
+    if not path.exists():
+        return False
+
+    lines = path.read_text(encoding='utf-8').splitlines()
+    new_lines = []
+    found = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped == skill_name:
+            found = True
+        else:
+            new_lines.append(line)
+
+    if not found:
+        return False
+
+    path.write_text('\n'.join(new_lines) + ('\n' if new_lines else ''), encoding='utf-8')
+    return True
+
+
+def list_ignore(is_global: bool, directory: Optional[Path] = None) -> list[str]:
+    """List skills in the ignore list."""
+    if is_global:
+        path = get_global_ignore_path()
+    else:
+        if directory is None:
+            raise ValueError("directory is required for local ignore")
+        path = get_local_ignore_path(directory)
+
+    if not path.exists():
+        return []
+
+    result = []
+    for line in path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if line and not line.startswith('#'):
+            result.append(line)
+    return result
+
+
 @dataclass
 class Issue:
     severity: str
@@ -248,12 +372,16 @@ class SkillScanner:
     def __init__(self):
         self.patterns = SecurityPatterns()
 
-    def scan_directory(self, directory: str) -> ScanReport:
+    def scan_directory(self, directory: str, ignore_list: Optional[set[str]] = None) -> ScanReport:
         directory = Path(directory).expanduser().resolve()
         if not directory.exists():
             raise FileNotFoundError(f"Directory not found: {directory}")
 
-        results = [self._scan_skill(skill_dir) for skill_dir in self._find_skills(directory)]
+        # Load ignore list if not provided
+        if ignore_list is None:
+            ignore_list = load_ignore_list(directory)
+
+        results = [self._scan_skill(skill_dir) for skill_dir in self._find_skills(directory, ignore_list)]
         return ScanReport(
             scan_date=datetime.now().isoformat(),
             skills_scanned=len(results),
@@ -269,8 +397,11 @@ class SkillScanner:
             path = path.parent
         return self._scan_skill(path)
 
-    def _find_skills(self, directory: Path) -> list[Path]:
-        return [skill_md.parent for skill_md in directory.rglob("SKILL.md")]
+    def _find_skills(self, directory: Path, ignore_list: Optional[set[str]] = None) -> list[Path]:
+        skills = [skill_md.parent for skill_md in directory.rglob("SKILL.md")]
+        if ignore_list:
+            skills = [s for s in skills if s.name not in ignore_list]
+        return skills
 
     def _scan_skill(self, skill_dir: Path) -> ScanResult:
         issues = []
@@ -468,6 +599,33 @@ def main():
     # info command
     info_parser = subparsers.add_parser('info', help='Show skill directory info')
 
+    # ignore command
+    ignore_parser = subparsers.add_parser('ignore', help='Manage scan ignore list')
+    ignore_subparsers = ignore_parser.add_subparsers(dest='ignore_command', help='Ignore commands')
+
+    # ignore add
+    ignore_add_parser = ignore_subparsers.add_parser('add', help='Add a skill to ignore list')
+    ignore_add_parser.add_argument('skill_name', help='Skill name to ignore')
+    ignore_add_group = ignore_add_parser.add_mutually_exclusive_group()
+    ignore_add_group.add_argument('--global', '-g', dest='is_global', action='store_true', help='Add to global ignore list')
+    ignore_add_group.add_argument('--local', '-L', dest='is_local', action='store_true', help='Add to local ignore list (default)')
+    ignore_add_parser.add_argument('--directory', '-d', help='Target directory for local ignore (default: current directory)')
+
+    # ignore remove
+    ignore_remove_parser = ignore_subparsers.add_parser('remove', help='Remove a skill from ignore list')
+    ignore_remove_parser.add_argument('skill_name', help='Skill name to remove from ignore')
+    ignore_remove_group = ignore_remove_parser.add_mutually_exclusive_group()
+    ignore_remove_group.add_argument('--global', '-g', dest='is_global', action='store_true', help='Remove from global ignore list')
+    ignore_remove_group.add_argument('--local', '-L', dest='is_local', action='store_true', help='Remove from local ignore list (default)')
+    ignore_remove_parser.add_argument('--directory', '-d', help='Target directory for local ignore (default: current directory)')
+
+    # ignore list
+    ignore_list_parser = ignore_subparsers.add_parser('list', help='List ignored skills')
+    ignore_list_group = ignore_list_parser.add_mutually_exclusive_group()
+    ignore_list_group.add_argument('--global', '-g', dest='is_global', action='store_true', help='Show only global ignore list')
+    ignore_list_group.add_argument('--local', '-L', dest='is_local', action='store_true', help='Show only local ignore list')
+    ignore_list_parser.add_argument('--directory', '-d', help='Target directory for local ignore (default: current directory)')
+
     args = parser.parse_args()
 
     # Initialize i18n
@@ -489,6 +647,58 @@ def main():
         else:
             print(f"{i18n.t('info_skills_root')}:         {i18n.t('info_not_detected')}")
         sys.exit(0)
+
+    # Handle ignore command
+    if args.command == 'ignore':
+        if not args.ignore_command:
+            ignore_parser.print_help()
+            sys.exit(1)
+
+        # Determine directory for local operations
+        local_dir = Path(args.directory).resolve() if hasattr(args, 'directory') and args.directory else Path.cwd()
+
+        if args.ignore_command == 'add':
+            is_global = args.is_global
+            if add_to_ignore(args.skill_name, is_global, local_dir):
+                scope = i18n.t('ignore_scope_global') if is_global else i18n.t('ignore_scope_local')
+                print(i18n.t('ignore_added', name=args.skill_name, scope=scope))
+            else:
+                print(i18n.t('ignore_already_exists', name=args.skill_name))
+            sys.exit(0)
+
+        elif args.ignore_command == 'remove':
+            is_global = args.is_global
+            if remove_from_ignore(args.skill_name, is_global, local_dir):
+                scope = i18n.t('ignore_scope_global') if is_global else i18n.t('ignore_scope_local')
+                print(i18n.t('ignore_removed', name=args.skill_name, scope=scope))
+            else:
+                print(i18n.t('ignore_not_found', name=args.skill_name))
+            sys.exit(0)
+
+        elif args.ignore_command == 'list':
+            show_global = args.is_global or not args.is_local
+            show_local = args.is_local or not args.is_global
+
+            if show_global:
+                print(i18n.t('ignore_list_global_header'))
+                global_list = list_ignore(is_global=True)
+                if global_list:
+                    for skill in global_list:
+                        print(f"  - {skill}")
+                else:
+                    print(f"  ({i18n.t('ignore_list_empty')})")
+                print()
+
+            if show_local:
+                print(i18n.t('ignore_list_local_header', path=local_dir))
+                local_list = list_ignore(is_global=False, directory=local_dir)
+                if local_list:
+                    for skill in local_list:
+                        print(f"  - {skill}")
+                else:
+                    print(f"  ({i18n.t('ignore_list_empty')})")
+
+            sys.exit(0)
 
     scanner = SkillScanner()
 
